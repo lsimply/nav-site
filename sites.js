@@ -1,5 +1,5 @@
 /* 在线表格（可选）：把表格“发布到网络”为 CSV 后，把链接填在下面的引号里，页面就会从表格读取站点；留空则只用下面的本地数据。 */
-window.SHEET_URL = "https://docs.google.com/spreadsheets/d/1yyGzjhia2KEY54HNhHTQCheJ08D8Fb2ghD9AAmkxge0/edit?usp=sharing";
+window.SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3pGJzo_VRpnznWHm-dRo2E8OvZxJyc-qdbN81DgD6nA3FDMf4f7wuBxOVnDYpw9jK55k_KAfirCUo/pub?gid=0&single=true&output=csv";
 
 /* 本地数据：增删站点改这里，注意保持逗号和引号完整。设置了在线表格时，它同时是读取失败时的备份。 */
 window.SITES_DATA = {
