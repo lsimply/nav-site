@@ -1,5 +1,5 @@
 /* 在线表格（可选）：把表格“发布到网络”为 CSV 后，把链接填在下面的引号里，页面就会从表格读取站点；留空则只用下面的本地数据。 */
-window.SHEET_URL = "http://nav-data.252826.xyz/api/sheet";
+window.SHEET_URL = "https://nav-data.252826.xyz/api/sheet";
 
 /* 本地数据：增删站点改这里，注意保持逗号和引号完整。设置了在线表格时，它同时是读取失败时的备份。 */
 window.SITES_DATA = {
