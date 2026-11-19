@@ -1,6 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>精选导航</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* 基础重置：独立部署时由页面自己提供 */
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
 <style>
 /* 布局：顶栏（品牌、搜索、主题），左侧分类栏，右侧是便当格头图（时钟、统计、联系）加卡片网格。手机上分类栏变成横向滑动。 */
 :root {
@@ -186,6 +198,26 @@ main { margin-top: 24px; display: flex; flex-direction: column; gap: 38px; }
 
 footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
 
+/* 懒渲染：屏幕外的分类段落先不绘制，滚到附近再绘制 */
+.sec { content-visibility: auto; contain-intrinsic-size: auto 520px; }
+/* 数据到达时卡片依次淡入（只在首次渲染和同步出现变化时播放，搜索和筛选时不播放） */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#list.enter .cell { animation: rise .38s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i, 0) * 30ms); }
+/* 骨架屏：只有在线表格、又没有任何本地数据或缓存时才会出现 */
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(256px, 1fr)); gap: 12px; }
+.skel {
+  height: 118px; border-radius: 12px; border: 1px solid var(--line);
+  background: linear-gradient(100deg, var(--surface) 30%, var(--accent-soft) 50%, var(--surface) 70%) 100% 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skel-title { width: 120px; height: 18px; border-radius: 6px; margin-bottom: 14px; }
+/* 同步状态小圆点 */
+@keyframes pulse { from { opacity: .25; } to { opacity: 1; } }
+.sync-on::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  margin-right: 7px; vertical-align: 1px; animation: pulse .9s ease-in-out infinite alternate;
+}
 @media (max-width: 1020px) {
   .bento { grid-template-columns: 1fr 1fr; }
   .clock-tile { grid-column: 1 / -1; }
@@ -209,14 +241,27 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
   .stats-tile { display: none; }
   .clock { font-size: 52px; }
   .grid { grid-template-columns: 1fr; }
+  /* 手机上头部尽量紧凑，让站点更早出现在首屏 */
+  .tile { padding: 14px 16px; }
+  .tile h3 { display: none; }
+  .tile .links { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .tile .links a { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; margin: 0; }
+  .tile .links small { display: none; }
+}
+@media (max-width: 720px) {
+  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .filters .chip, .filters .flabel, .filters .clear { flex: none; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   .clock .colon { animation: none; }
   .card, .fav { transition: none; }
   .cell:hover .card { transform: none; }
+  #list.enter .cell, .skel, .sync-on::before { animation: none; }
 }
 </style>
 
+</head>
+<body>
 <header class="top">
   <div class="bar wrap">
     <div class="brand">
@@ -265,7 +310,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
     <div class="filters" id="filters"></div>
     <main id="list"></main>
 
-    <footer>部分站点数据来自网络。免费额度、登录要求和网络条件以站点实际页面为准。</footer>
+    <footer>部分站点数据整理自。免费额度、登录要求和网络条件以站点实际页面为准。</footer>
   </div>
 </div>
 
@@ -368,11 +413,11 @@ function tick() {
 }
 
 /* ===== 渲染 ===== */
-function card(i) {
+function card(i, n) {
   const on = favs.has(i.url);
   const tags = (i.tags || []).slice(0, 4)
     .map((t) => `<span class="tag${t === "新增" ? " new" : t === "热门" ? " hot" : ""}">${esc(t)}</span>`).join("");
-  return `<div class="cell"><a class="card" href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">
+  return `<div class="cell" style="--i:${Math.min(n || 0, 14)}"><a class="card" href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">
     <span class="head">
       <span class="ic${isImg(i.icon) ? " has-img" : ""}" style="--h:${itemHue(i)}">${icon(i)}</span>
       <span class="who"><span class="name">${esc(i.name)}</span><span class="host">${esc(host(i.url))}</span></span>
@@ -596,8 +641,8 @@ function parseCSV(t) {
   if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
   return rows.filter((r) => r.some((x) => x.trim() !== ""));
 }
-function sheetToSites(text) {
-  const rows = parseCSV(text);
+function sheetToSites(input) {
+  const rows = typeof input === "string" ? parseCSV(input) : input;
   if (rows.length < 2) throw new Error("empty");
   const names = {
     c: ["分类", "category", "cat"], name: ["站点", "名称", "name"], url: ["网址", "链接", "url"],
@@ -627,16 +672,102 @@ function sheetToSites(text) {
   if (!items.length) throw new Error("no items");
   return { updated: "", categories: cats, items };
 }
-function loadSheet() {
-  fetch(window.SHEET_URL, { cache: "no-cache" })
+/* 链接可以直接粘贴 Google 表格的分享链接（需设为“知道链接的任何人可查看”），也可以是“发布到网络”的 CSV 链接 */
+function sheetCsvUrl(u) {
+  const m = u.match(/docs\.google\.com\/spreadsheets\/d\/([\w-]+)/);
+  if (!m || m[1] === "e" || /output=csv|tqx=out:csv/.test(u)) return u;
+  const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&headers=1${gid ? "&gid=" + gid : ""}`;
+}
+/* 备用读取方式：用 script 标签加载 Google 表格的数据接口，不受跨域限制（表格需设为“知道链接的任何人可查看”） */
+function sheetViaScript(u) {
+  return new Promise((resolve, reject) => {
+    const m = u.match(/docs\.google\.com\/spreadsheets\/d\/([\w-]+)/);
+    if (!m || m[1] === "e") return reject(new Error("not a google sheet"));
+    const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+    const cb = "__sheetCb" + Date.now();
+    const s = document.createElement("script");
+    const done = () => { delete window[cb]; s.remove(); };
+    window[cb] = (res) => {
+      done();
+      try {
+        const t = res.table;
+        const labels = t.cols.map((c) => c.label || "");
+        const body = t.rows.map((r) => (r.c || []).map((c) => (c && c.v != null ? String(c.v) : "")));
+        resolve(labels.some(Boolean) ? [labels, ...body] : body);
+      } catch (e) { reject(e); }
+    };
+    s.onerror = () => { done(); reject(new Error("script")); };
+    s.src = `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=responseHandler:${cb}&headers=1${gid ? "&gid=" + gid : ""}`;
+    document.head.appendChild(s);
+    setTimeout(() => { if (window[cb]) { done(); reject(new Error("timeout")); } }, 10000);
+  });
+}
+/* 读取策略：先立刻显示缓存或本地数据，后台同步在线表格；读到后只有内容真的变了才更新，并淡入。
+   在线表格读不到（比如大陆访问不了 Google）时，页面不受影响，继续显示已有数据。 */
+function fetchCsv(u) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  return fetch(sheetCsvUrl(u), { cache: "no-cache", signal: ctl.signal })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
-    .then((t) => { SITES = sheetToSites(t); boot(); $("#st-date").textContent = "已同步在线表格"; })
+    .then(sheetToSites)
+    .finally(() => clearTimeout(timer));
+}
+function readCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem("nav-cache") || "null");
+    if (c && c.u === window.SHEET_URL && c.d && c.d.items && c.d.items.length) return c.d;
+  } catch (_) {}
+  return null;
+}
+function writeCache(d) { try { localStorage.setItem("nav-cache", JSON.stringify({ u: window.SHEET_URL, d })); } catch (_) {} }
+function setSync(state) {
+  const el = $("#st-date");
+  el.classList.toggle("sync-on", state === "loading");
+  if (state === "loading") el.textContent = "正在同步最新数据…";
+  else if (state === "ok") el.textContent = "已同步最新数据";
+  else if (state === "fail") el.textContent = "最新数据暂时读不到，显示已保存的内容";
+}
+/* 播放一次卡片淡入 */
+let enterTimer;
+function playEnter() {
+  const el = $("#list");
+  el.classList.remove("enter");
+  void el.offsetWidth;
+  el.classList.add("enter");
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(() => el.classList.remove("enter"), 1200);
+}
+function skeleton() {
+  const cards = Array.from({ length: 9 }, () => '<div class="skel"></div>').join("");
+  return `<div aria-busy="true" aria-label="正在加载"><div class="skel skel-title"></div><div class="skel-grid">${cards}</div></div>`;
+}
+function loadSheet() {
+  const u = window.SHEET_URL;
+  setSync("loading");
+  /* 普通请求和 script 方式同时发出，谁先成功用谁，另一个失败不影响 */
+  Promise.any([fetchCsv(u), sheetViaScript(u).then(sheetToSites)])
+    .then((d) => {
+      const changed = JSON.stringify(d) !== JSON.stringify(SITES);
+      writeCache(d);
+      if (changed) { SITES = d; boot(); playEnter(); }
+      setSync("ok");
+    })
     .catch(() => {
-      if (!SITES.items.length) $("#list").innerHTML = '<div class="empty"><p>在线表格没有读取成功，请确认已“发布到网络”为 CSV，并且链接填写正确。</p></div>';
+      if (SITES.items.length) setSync("fail");
+      else $("#list").innerHTML = '<div class="empty"><p>在线表格没有读取成功，请确认已“发布到网络”为 CSV，并且链接填写正确。</p></div>';
     });
 }
 
-if (SITES.items.length) boot();
-else if (!window.SHEET_URL) $("#list").innerHTML = '<div class="empty"><p>站点数据 sites.js 没有加载成功。请确认它和本页放在同一个目录，并且格式正确。</p></div>';
-if (window.SHEET_URL) loadSheet();
+if (window.SHEET_URL) { const cached = readCache(); if (cached) SITES = cached; }
+if (SITES.items.length) { boot(); playEnter(); }
+else if (window.SHEET_URL) $("#list").innerHTML = skeleton();
+else $("#list").innerHTML = '<div class="empty"><p>站点数据 sites.js 没有加载成功。请确认它和本页放在同一个目录，并且格式正确。</p></div>';
+if (window.SHEET_URL) {
+  /* 等页面本身加载完再去同步表格，读取慢或被拦截时不会拖住页面的加载状态 */
+  if (document.readyState === "complete") loadSheet();
+  else window.addEventListener("load", () => setTimeout(loadSheet, 0));
+}
 </script>
+</body>
+</html>
